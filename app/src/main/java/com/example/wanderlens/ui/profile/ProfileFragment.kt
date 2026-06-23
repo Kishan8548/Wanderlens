@@ -42,6 +42,10 @@ class ProfileFragment : Fragment() {
             findNavController().navigate(R.id.nav_settings)
         }
 
+        binding.btnBack.setOnClickListener {
+            findNavController().navigateUp()
+        }
+
         binding.btnLogout.setOnClickListener {
             authRepository.logout()
             startActivity(Intent(requireContext(), AuthActivity::class.java))

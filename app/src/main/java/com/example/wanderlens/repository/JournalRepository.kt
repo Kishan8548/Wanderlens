@@ -15,6 +15,8 @@ import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -57,7 +59,7 @@ class JournalRepository {
         } catch (e: Exception) {
             emit(Resource.Error(e.localizedMessage ?: "Failed to fetch journals"))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     fun getJournalById(journalId: String): Flow<Resource<JournalEntry>> = flow {
         emit(Resource.Loading)
@@ -77,7 +79,7 @@ class JournalRepository {
         } catch (e: Exception) {
             emit(Resource.Error(e.localizedMessage ?: "Failed to fetch journal detail"))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     suspend fun uploadToCloudinary(file: File): String {
         val timestamp = System.currentTimeMillis() / 1000
@@ -198,7 +200,7 @@ class JournalRepository {
         } catch (e: Exception) {
             emit(Resource.Error(e.localizedMessage ?: "Processing failed"))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     private fun compressImage(file: File): ByteArray {
         val bitmap = BitmapFactory.decodeFile(file.absolutePath)
@@ -221,5 +223,64 @@ class JournalRepository {
         val resizedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
         resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, out)
         return out.toByteArray()
+    }
+
+    fun deleteJournal(journalId: String, imageUrl: String): Flow<Resource<Unit>> = flow {
+        emit(Resource.Loading)
+        try {
+            // Extract public_id from Cloudinary URL
+            // URL format: https://res.cloudinary.com/<cloud>/image/upload/v123/public_id.ext
+            val publicId = extractPublicId(imageUrl)
+
+            // Delete from Cloudinary
+            if (publicId != null) {
+                try {
+                    val timestamp = System.currentTimeMillis() / 1000
+                    val signatureStr = "public_id=${publicId}&timestamp=${timestamp}${ConfigProvider.CLOUDINARY_API_SECRET}"
+                    val signature = sha1(signatureStr)
+
+                    RetrofitClient.cloudinaryApi.destroyImage(
+                        cloudName = ConfigProvider.CLOUDINARY_CLOUD_NAME,
+                        publicId = publicId.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        timestamp = timestamp.toString().toRequestBody("text/plain".toMediaTypeOrNull()),
+                        apiKey = ConfigProvider.CLOUDINARY_API_KEY.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        signature = signature.toRequestBody("text/plain".toMediaTypeOrNull())
+                    )
+                } catch (e: Exception) {
+                    // Log but don't fail — still delete from Firebase
+                    e.printStackTrace()
+                }
+            }
+
+            // Delete from Firebase
+            val userId = auth.currentUser?.uid ?: "anonymous"
+            firestore.collection("users").document(userId)
+                .collection("journals").document(journalId)
+                .delete()
+                .await()
+
+            emit(Resource.Success(Unit))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.localizedMessage ?: "Failed to delete journal"))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private fun extractPublicId(imageUrl: String): String? {
+        return try {
+            // URL: https://res.cloudinary.com/cloud/image/upload/v12345/folder/public_id.jpg
+            val uploadIndex = imageUrl.indexOf("/upload/")
+            if (uploadIndex == -1) return null
+            val afterUpload = imageUrl.substring(uploadIndex + 8) // skip "/upload/"
+            // Remove version prefix like "v12345/"
+            val withoutVersion = if (afterUpload.startsWith("v") && afterUpload.contains("/")) {
+                afterUpload.substringAfter("/")
+            } else {
+                afterUpload
+            }
+            // Remove file extension
+            withoutVersion.substringBeforeLast(".")
+        } catch (e: Exception) {
+            null
+        }
     }
 }

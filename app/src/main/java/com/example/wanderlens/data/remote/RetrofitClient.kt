@@ -1,5 +1,6 @@
 package com.example.wanderlens.data.remote
 
+import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -8,7 +9,13 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
+    private val loggingInterceptor = HttpLoggingInterceptor { message ->
+        if (message.length > 2000) {
+            Log.i("OkHttp", "[Payload too large to log: ${message.length} characters]")
+        } else {
+            Log.i("OkHttp", message)
+        }
+    }.apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
