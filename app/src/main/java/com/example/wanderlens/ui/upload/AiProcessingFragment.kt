@@ -81,6 +81,7 @@ class AiProcessingFragment : Fragment() {
                             if (_binding != null) {
                                 Toast.makeText(requireContext(), "✨ Journal Created!", Toast.LENGTH_SHORT).show()
                                 viewModel.resetState()
+                                findNavController().getBackStackEntry(R.id.nav_home).savedStateHandle.set("refresh_journals", true)
                                 findNavController().popBackStack(R.id.nav_home, false)
                             }
                         }
@@ -166,7 +167,7 @@ class AiProcessingFragment : Fragment() {
         tv.alpha = 1f
         tv.setTextColor(ContextCompat.getColor(requireContext(), R.color.brand_primary))
         // Change icon to checkmark
-        val checkDrawable = ContextCompat.getDrawable(requireContext(), android.R.drawable.checkbox_on_background)
+        val checkDrawable = ContextCompat.getDrawable(requireContext(), R.drawable.ic_check)
         checkDrawable?.setTint(ContextCompat.getColor(requireContext(), R.color.brand_primary))
         tv.setCompoundDrawablesWithIntrinsicBounds(checkDrawable, null, null, null)
         tv.setTypeface(null, android.graphics.Typeface.NORMAL)

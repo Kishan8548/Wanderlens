@@ -45,13 +45,10 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.btnUploadNow.setOnClickListener{
-            findNavController().navigate(R.id.nav_upload)
-        }
-
         setupRecyclerView()
         setupChipSelection()
         setupSearch()
+        setupSwipeRefresh()
         observeViewModel()
 
         binding.btnUpload.setOnClickListener {
@@ -61,9 +58,9 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupSwipeRefresh() {
-        binding.swipeRefresh.setColorSchemeResources(R.color.brand_primary)
+        binding.swipeRefreshLayout.setColorSchemeResources(R.color.brand_primary)
 
-        binding.swipeRefresh.setOnRefreshListener {
+        binding.swipeRefreshLayout.setOnRefreshListener {
             viewModel.fetchJournals()
         }
     }
@@ -197,16 +194,25 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeViewModel() {
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("refresh_journals")
+            ?.observe(viewLifecycleOwner) { refresh ->
+                if (refresh == true) {
+                    Log.d("HomeFragment", "Auto-refreshing journals after modification...")
+                    viewModel.fetchJournals()
+                    findNavController().currentBackStackEntry?.savedStateHandle?.remove<Boolean>("refresh_journals")
+                }
+            }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.journalsState.collect { resource ->
                     when (resource) {
                         is Resource.Loading -> {
-                            binding.swipeRefresh.isRefreshing = true
+                            binding.swipeRefreshLayout.isRefreshing = true
                             Log.d("HomeFragment", "Loading journals...")
                         }
                         is Resource.Success -> {
-                            binding.swipeRefresh.isRefreshing = false
+                            binding.swipeRefreshLayout.isRefreshing = false
                             allJournals = resource.data ?: emptyList()
                             journalAdapter.submitList(allJournals)
                             buildCountryChips(allJournals)
@@ -221,7 +227,7 @@ class HomeFragment : Fragment() {
                             }
                         }
                         is Resource.Error -> {
-                            binding.swipeRefresh.isRefreshing = false
+                            binding.swipeRefreshLayout.isRefreshing = false
                             Toast.makeText(requireContext(), resource.message, Toast.LENGTH_SHORT).show()
                         }
                     }

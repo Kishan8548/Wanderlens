@@ -19,6 +19,7 @@ import com.example.wanderlens.databinding.FragmentJournalDetailBinding
 import com.example.wanderlens.databinding.ItemFunFactBinding
 import com.example.wanderlens.repository.JournalRepository
 import com.example.wanderlens.utils.Resource
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
@@ -28,6 +29,8 @@ class JournalDetailFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val repository = JournalRepository()
+    private var currentEntry: JournalEntry? = null
+    private var currentJournalId: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -41,6 +44,7 @@ class JournalDetailFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val journalId = arguments?.getString("journalId")
+        currentJournalId = journalId
 
         if (journalId != null) {
             fetchJournalDetail(journalId)
@@ -55,7 +59,6 @@ class JournalDetailFragment : Fragment() {
     }
 
     private fun setupToolbar() {
-        binding.toolbar.setNavigationIcon(R.drawable.ic_back)
 
         binding.toolbar.setNavigationOnClickListener {
             handleBackAction()
@@ -89,10 +92,10 @@ class JournalDetailFragment : Fragment() {
 
             if (percentage > 0.8f) {
                 binding.toolbar.setBackgroundColor(requireContext().getColor(R.color.brand_primary))
-                binding.toolbar.title = journalTitle
+                binding.toolbar.title = journalTitle ?: "Journal Details"
             } else {
                 binding.toolbar.setBackgroundColor(Color.TRANSPARENT)
-                binding.toolbar.title = ""
+                binding.toolbar.title = "Journal Details"
             }
         }
     }
@@ -125,6 +128,7 @@ class JournalDetailFragment : Fragment() {
     }
 
     private fun bindData(entry: JournalEntry) {
+        currentEntry = entry
         journalTitle = entry.title
         binding.tvDetailTitle.text = entry.title
         binding.tvDetailLocation.text = "${entry.location}, ${entry.country}"
@@ -142,6 +146,50 @@ class JournalDetailFragment : Fragment() {
         }
 
         setupFunFacts(entry.funFacts)
+        setupDeleteButton()
+    }
+
+    private fun setupDeleteButton() {
+        binding.btnDeleteJournal.setOnClickListener {
+            showDeleteConfirmation()
+        }
+    }
+
+    private fun showDeleteConfirmation() {
+        val entry = currentEntry ?: return
+        val journalId = currentJournalId ?: return
+
+        MaterialAlertDialogBuilder(requireContext(), com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+            .setTitle("Delete Journal")
+            .setMessage("Are you sure you want to delete \"${entry.title}\"? This action cannot be undone and will permanently remove the journal and its image.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                performDelete(journalId, entry.imageUrl)
+            }
+            .show()
+    }
+
+    private fun performDelete(journalId: String, imageUrl: String) {
+        repository.deleteJournal(journalId, imageUrl)
+            .onEach { resource ->
+                when (resource) {
+                    is Resource.Loading -> {
+                        binding.btnDeleteJournal.isEnabled = false
+                        binding.btnDeleteJournal.text = "Deleting..."
+                    }
+                    is Resource.Success -> {
+                        Toast.makeText(requireContext(), "Journal deleted", Toast.LENGTH_SHORT).show()
+                        findNavController().previousBackStackEntry?.savedStateHandle?.set("refresh_journals", true)
+                        findNavController().navigateUp()
+                    }
+                    is Resource.Error -> {
+                        binding.btnDeleteJournal.isEnabled = true
+                        binding.btnDeleteJournal.text = "Delete Journal"
+                        Toast.makeText(requireContext(), resource.message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .launchIn(viewLifecycleOwner.lifecycleScope)
     }
 
     private fun showImagePreview(imageUrl: String) {
@@ -199,6 +247,13 @@ class JournalDetailFragment : Fragment() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             holder.binding.tvFunFact.text = facts[position]
+            holder.binding.root.setOnClickListener {
+                if (holder.binding.tvFunFact.maxLines == 4) {
+                    holder.binding.tvFunFact.maxLines = Integer.MAX_VALUE
+                } else {
+                    holder.binding.tvFunFact.maxLines = 4
+                }
+            }
         }
 
         override fun getItemCount(): Int = facts.size

@@ -23,7 +23,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.airbnb.lottie.LottieDrawable
 import com.bumptech.glide.Glide
-import com.example.wanderlens.EntryState
+
 import com.example.wanderlens.R
 import com.example.wanderlens.databinding.FragmentUploadBinding
 import java.io.File
@@ -31,6 +31,10 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+enum class EntryState {
+    IDLE, PICKING, UPLOADING, SUCCESS, ERROR
+}
 
 class UploadFragment : Fragment() {
 
@@ -126,6 +130,7 @@ class UploadFragment : Fragment() {
             if (uri != null) {
                 val file = uriToFile(uri)
                 if (file != null) {
+                    viewModel.setSelectedImageUri(uri)
                     viewModel.uploadJournal(file)
                     findNavController().navigate(R.id.nav_ai_processing)
                 } else {
@@ -141,8 +146,8 @@ class UploadFragment : Fragment() {
         currentState = EntryState.UPLOADING
         updateAnimation(currentState)
 
-        // simulate upload delay
         binding.lottieView.postDelayed({
+            if (_binding == null) return@postDelayed
             val success = true
             currentState = if (success) EntryState.SUCCESS else EntryState.ERROR
             updateAnimation(currentState)
