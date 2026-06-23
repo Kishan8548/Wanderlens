@@ -13,17 +13,14 @@
         android:layout_height="wrap_content"
         android:background="@color/surface_card"
         android:paddingHorizontal="16dp"
-        android:paddingVertical="16dp"
+        android:paddingVertical="10dp"
         app:layout_constraintTop_toTopOf="parent">
 
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/ivUserAvatar"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@color/brand_tint_30"
-            android:src="@drawable/ic_map"
-            app:tint="@color/brand_primary"
-            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.CornerSize50Percent"
+        <ImageView
+            android:id="@+id/ivAppLogo"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/logo_wanderlens"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
@@ -38,7 +35,7 @@
             android:textSize="20sp"
             android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/ivUserAvatar"
+            app:layout_constraintStart_toEndOf="@+id/ivAppLogo"
             app:layout_constraintTop_toTopOf="parent" />
 
         <ImageButton
@@ -210,8 +207,8 @@
             android:textAlignment="center" />
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvJournals"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@+id/hsvFilters"
